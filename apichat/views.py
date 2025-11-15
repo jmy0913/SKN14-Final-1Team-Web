@@ -16,7 +16,8 @@ from langchain_openai import ChatOpenAI
 from main.models import Card, ChatMessage
 from main.models import ChatSession, CardMessage, ChatImage
 from uauth.models import *
-from .utils.main3 import run_langraph
+# from .utils.main3 import run_langraph
+from .utils.llm import run_llm
 from .utils.whisper import call_whisper_api
 from .aws_s3_service import S3Client
 
@@ -324,7 +325,7 @@ def chat(request):
 
             # RAG 봇 호출 - 이미지 URL 전달
             try:
-                response = run_langraph(
+                response = run_llm(
                     user_message, session_id, image_url, db_chat_history
                 )
             except Exception as e:
@@ -411,7 +412,7 @@ def transcribe_audio(request):
 
             # run_langraph 호출
             try:
-                response = run_langraph(
+                response = run_llm(
                     transcribed_text, session_id, None, db_chat_history
                 )
             except Exception as e:
