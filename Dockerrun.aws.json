@@ -1,7 +1,7 @@
 {
   "AWSEBDockerrunVersion": "1",
   "Image": {
-    "Name": "skn14f1/codenova:latest",
+    "Name": "skn14f1/skn14-codenova-develop:latest",
     "Update": "true"
   },
   "Ports": [
