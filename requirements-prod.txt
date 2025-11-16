@@ -5,15 +5,6 @@ mysqlclient
 gunicorn
 uvicorn
 blacknoise
-langgraph
-langchain
-lark
-langchain_openai
-langchain-community
-langchain_chroma
-langchain_huggingface
-sentence-transformers
+openai
 gdown
 boto3
-rank_bm25
-konlpy
