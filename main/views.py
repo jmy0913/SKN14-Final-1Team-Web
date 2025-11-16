@@ -1,6 +1,4 @@
 import json
-import chromadb
-from chromadb.utils import embedding_functions
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -10,6 +8,7 @@ from django.core.paginator import Paginator
 
 from .models import Post, Comment, Card, ChatMessage
 from .forms import CommentForm, PostForm
+from .utils.doc_search import query_search
 
 
 @login_required
@@ -185,95 +184,94 @@ def delete_post(request, post_id):
     return HttpResponseForbidden()
 
 
-collection = None
-doc_ids = []
-doc_texts = []
-okt = None
-
-
-def ensure_search_initialized():
-    global collection
-
-    if collection is not None:
-        return
-
-    client = chromadb.PersistentClient(path="apichat/utils/chroma_db")
-    emb = embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name="BAAI/bge-m3",
-        device="cpu",
-    )
-    collection = client.get_collection(name="google_api_docs", embedding_function=emb)
-
-
-def normalize_meta(meta, default_doc=""):  # Chroma 메타데이터 정리
-    raw_file = meta.get("source_file", "")
-    if raw_file.endswith(".txt"):
-        title = raw_file[:-4]
-    else:
-        title = meta.get("title") or raw_file or ""
-
-    source = meta.get("url") or meta.get("source") or ""
-    if isinstance(source, list):
-        source = (source[0] or "").strip()
-    elif isinstance(source, str):
-        s = source.strip()
-        if s[:1] in "[{":  # JSON 형태라면 url 추출
-            try:
-                data = json.loads(s)
-                if isinstance(data, list) and data:
-                    source = str(data[0]).strip()
-                elif isinstance(data, dict) and "url" in data:
-                    source = str(data["url"]).strip()
-            except Exception:
-                pass
-        else:
-            source = s
-
-    snippet = (default_doc or "")[:220]
-
-    return {
-        "title": title,
-        "source": source,
-        "snippet": snippet,
-    }
-
-
-def search_dense(q, k):
-    ensure_search_initialized()
-    res = collection.query(
-        query_texts=[q],
-        n_results=k * 3,
-        include=["documents", "metadatas"],
-    )
-    docs = res["documents"][0]
-    metas = res["metadatas"][0]
-    ids = res["ids"][0]
-
-    rows, seen = [], set()
-    for i, (doc, meta) in enumerate(zip(docs, metas)):
-        norm = normalize_meta(meta or {}, doc)
-        key = norm["source"] or (norm["title"], norm["snippet"])
-        if key in seen:
-            continue
-        seen.add(key)
-
-        rows.append(
-            {
-                "id": ids[i],
-                "title": norm["title"],
-                "source": norm["source"],
-                "snippet": norm["snippet"],
-            }
-        )
-        if len(rows) >= k:
-            break
-    return rows
+# collection = None
+# doc_ids = []
+# doc_texts = []
+# okt = None
+#
+#
+# def ensure_search_initialized():
+#     global collection
+#
+#     if collection is not None:
+#         return
+#
+#     client = chromadb.PersistentClient(path="apichat/utils/chroma_db")
+#     emb = embedding_functions.SentenceTransformerEmbeddingFunction(
+#         model_name="BAAI/bge-m3",
+#         device="cpu",
+#     )
+#     collection = client.get_collection(name="google_api_docs", embedding_function=emb)
+#
+#
+# def normalize_meta(meta, default_doc=""):  # Chroma 메타데이터 정리
+#     raw_file = meta.get("source_file", "")
+#     if raw_file.endswith(".txt"):
+#         title = raw_file[:-4]
+#     else:
+#         title = meta.get("title") or raw_file or ""
+#
+#     source = meta.get("url") or meta.get("source") or ""
+#     if isinstance(source, list):
+#         source = (source[0] or "").strip()
+#     elif isinstance(source, str):
+#         s = source.strip()
+#         if s[:1] in "[{":  # JSON 형태라면 url 추출
+#             try:
+#                 data = json.loads(s)
+#                 if isinstance(data, list) and data:
+#                     source = str(data[0]).strip()
+#                 elif isinstance(data, dict) and "url" in data:
+#                     source = str(data["url"]).strip()
+#             except Exception:
+#                 pass
+#         else:
+#             source = s
+#
+#     snippet = (default_doc or "")[:220]
+#
+#     return {
+#         "title": title,
+#         "source": source,
+#         "snippet": snippet,
+#     }
+#
+#
+# def search_dense(q, k):
+#     ensure_search_initialized()
+#     res = collection.query(
+#         query_texts=[q],
+#         n_results=k * 3,
+#         include=["documents", "metadatas"],
+#     )
+#     docs = res["documents"][0]
+#     metas = res["metadatas"][0]
+#     ids = res["ids"][0]
+#
+#     rows, seen = [], set()
+#     for i, (doc, meta) in enumerate(zip(docs, metas)):
+#         norm = normalize_meta(meta or {}, doc)
+#         key = norm["source"] or (norm["title"], norm["snippet"])
+#         if key in seen:
+#             continue
+#         seen.add(key)
+#
+#         rows.append(
+#             {
+#                 "id": ids[i],
+#                 "title": norm["title"],
+#                 "source": norm["source"],
+#                 "snippet": norm["snippet"],
+#             }
+#         )
+#         if len(rows) >= k:
+#             break
+#     return rows
 
 
 @require_GET
 def docsearch(request):
     print("docsearch called with query: ", request.GET.get("q"))
-    ensure_search_initialized()
 
     q = request.GET.get("q", "").strip()
     if not q:
@@ -281,7 +279,7 @@ def docsearch(request):
 
     k = int(request.GET.get("k", 10))  # 기본 10
 
-    dense_rows = search_dense(q, k)
+    dense_rows = query_search(q, k)
 
     print("Dense rows: ", dense_rows[:3])
 
