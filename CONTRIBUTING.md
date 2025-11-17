@@ -1,3 +1,6 @@
+# 개인 aws 재배포 시도
+
+
 # Contributing Guidelines
 
 이 프로젝트의 실행을 위한 가이드라인 입니다.

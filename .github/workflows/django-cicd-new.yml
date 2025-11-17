@@ -1,4 +1,4 @@
-name: Django CICD App
+name: Django CICD on Running
 
 on:
   pull_request_target:
